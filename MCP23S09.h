@@ -18,6 +18,24 @@
 
  */
 
+/*
+*             MCP23S09 expander xp0
+ *
+ *                                   +---\/---+
+ *                             VDD  1|        |18 VSS
+ *                              NC  2|        |17 NC
+ *                              CS  3|        |16 GP7
+ *                             SCK  4|        |15 GP6
+ *                            MOSI  5|        |14 GP5
+ *                            MISO  6|        |13 GP4
+ *                           RESET  7|        |12 GP3
+ *                       INTERRUPT  8|        |11 GP2
+ *                             GP0  9|        |10 GP1
+ *                                   +--------+
+ *
+ */
+
+
 #ifndef MCP23S09_H_
 #define MCP23S09_H_
 
