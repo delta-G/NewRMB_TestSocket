@@ -27,24 +27,25 @@ StreamParser parser(&Serial, '<', '>', handleSerial);
 
 uint8_t xpander1CSpin = 1;
 uint8_t xpander2CSpin = 15;
+uint8_t xpander2HwAddy = 3;
 
-MCP23S09 xpanders[2] = {MCP23S09(xpander1CSpin), MCP23S09(xpander2CSpin)};
+MCP23S09 xpander(xpander1CSpin);
+MCP23S08 powerXpander(xpander2CSpin, xpander2HwAddy);
 
 uint8_t currentXpander = 0;
 
-Motor motors[2] = {
-		Motor(LEFT_MOTOR_DIRECTION_PIN_1, LEFT_MOTOR_DIRECTION_PIN_2, LEFT_MOTOR_ENABLE_PIN, false),
-		Motor(RIGHT_MOTOR_DIRECTION_PIN_1, RIGHT_MOTOR_DIRECTION_PIN_2, RIGHT_MOTOR_ENABLE_PIN, false)
-};
+Motor motors[2] = { Motor(LEFT_MOTOR_DIRECTION_PIN_1,
+LEFT_MOTOR_DIRECTION_PIN_2, LEFT_MOTOR_ENABLE_PIN, false), Motor(
+RIGHT_MOTOR_DIRECTION_PIN_1, RIGHT_MOTOR_DIRECTION_PIN_2,
+RIGHT_MOTOR_ENABLE_PIN, false) };
 
-void setup()
-{
+void setup() {
 	uint8_t mcusr = MCUSR;
 	MCUSR = 0;
 
 	pinMode(4, OUTPUT);
-	xpanders[0].init();
-	xpanders[1].init();
+	xpander.init();
+	powerXpander.init();
 	pinMode(heartbeatPin, OUTPUT);
 
 	pinMode(0, OUTPUT);
@@ -59,13 +60,11 @@ void setup()
 	delay(250);
 	Serial.println(F("Beginning"));
 	Serial.println(F("End of Setup"));
-	Serial.println(F("Vers - 21"));
+	Serial.println(F("Vers - 30"));
 	Serial.println(mcusr, HEX);
 }
 
-
-void loop()
-{
+void loop() {
 
 	heartbeat();
 	parser.run();
@@ -74,33 +73,31 @@ void loop()
 
 }
 
-void heartbeat(){
+void heartbeat() {
 	static boolean heartState = false;
 	static unsigned long prev = millis();
 	unsigned long cur = millis();
 
-	if(cur - prev >= heartDelay){
+	if (cur - prev >= heartDelay) {
 		prev = cur;
 		heartState = !heartState;
 		digitalWrite(heartbeatPin, heartState);
 	}
 }
 
-
-
-void handleSerial(char* p){
+void handleSerial(char *p) {
 	switch (p[1]) {
 
-	case 'q':
-		digitalWrite(1, LOW);
-		break;
-	case 'Q':
-		digitalWrite(1, HIGH);
-		break;
+//	case 'q':
+//		digitalWrite(1, LOW);
+//		break;
+//	case 'Q':
+//		digitalWrite(1, HIGH);
+//		break;
 
 	case 'M': {
 		uint8_t mot = p[2] - '0';
-		switch (p[3]){
+		switch (p[3]) {
 		case '0':
 			motors[mot].stop();
 			break;
@@ -114,12 +111,12 @@ void handleSerial(char* p){
 			motors[mot].coast();
 			break;
 		case 'P': {
-			int pwmSpeed = atoi((const char*) p+4);
+			int pwmSpeed = atoi((const char*) p + 4);
 			motors[mot].drive(pwmSpeed);
 			break;
 		}
 		case 'S': {
-			int setSpeed = atoi((const char*) p+4);
+			int setSpeed = atoi((const char*) p + 4);
 			motors[mot].setSpeed(setSpeed);
 			break;
 		}
@@ -128,17 +125,22 @@ void handleSerial(char* p){
 	}  // end case 'M'
 	case 'I':
 		Serial.println(F("Initializing expander"));
-		xpanders[0].setPinMode(0, OUTPUT);
-		xpanders[0].setPullup(0, true);
-		xpanders[0].writePin(0, LOW);
+		xpander.setPinMode(0, OUTPUT);
+		xpander.writePin(0, LOW);
 
-		xpanders[0].setPinMode(1, OUTPUT);
-		xpanders[0].setPullup(1, true);
-		xpanders[0].writePin(1, LOW);
+		xpander.setPinMode(1, OUTPUT);
+		xpander.writePin(1, LOW);
 
-		xpanders[0].setPinMode(2, INPUT);
-		xpanders[0].setPinMode(4, INPUT);
-		xpanders[0].setPinMode(5, INPUT);
+		xpander.setPinMode(2, OUTPUT);
+		xpander.writePin(2, LOW);
+
+		xpander.setPinMode(3, OUTPUT);
+		xpander.writePin(3, LOW);
+
+		xpander.setPinMode(4, INPUT);
+		xpander.setPinMode(5, INPUT);
+		xpander.setPinMode(6, INPUT);
+		xpander.setPinMode(7, INPUT);
 		Serial.println(F("Expander setup compete."));
 		break;
 
@@ -164,7 +166,7 @@ void handleSerial(char* p){
 		Serial.println(F("Got Pinged"));
 		break;
 	case 'X':
-		if(p[2] == '0'){
+		if (p[2] == '0') {
 			currentXpander = 0;
 			Serial.println(F("Xpander-0"));
 		} else {
@@ -172,45 +174,73 @@ void handleSerial(char* p){
 			Serial.println(F("Xpander-1"));
 		}
 		break;
-	case '0' ... '7':{
-	    uint8_t pin = p[1] - '0';
-	    Serial.print(F("Xpander "));
-	    Serial.print(currentXpander);
-	    Serial.print(F(" Pin "));
-	    Serial.print(pin);
-	    Serial.print(F(" set to "));
-	    switch (p[2]) {
-	    case 'O':
-	    	xpanders[currentXpander].setPinMode(pin, OUTPUT);
-	    	Serial.println(F("OUTPUT"));
-	    	break;
-	    case 'i':
-	    	xpanders[currentXpander].setPinMode(pin, INPUT);
-	    	Serial.println(F("INPUT"));
-	    	break;
-	    case 'I':
-	    	xpanders[currentXpander].setPinMode(pin, INPUT_PULLUP);
-	    	Serial.println(F("INPUT_PULLUP"));
-	    	break;
-	    case 'H':
-	    	xpanders[currentXpander].writePin(pin, HIGH);
-	    	Serial.println(F("HIGH"));
-	    	break;
-	    case 'L':
-	    	xpanders[currentXpander].writePin(pin, LOW);
-	    	Serial.println(F("LOW"));
-	    	break;
-	    case 'R':
-	    	Serial.print(F("Read Xpander "));
-		    Serial.print(currentXpander);
-		    Serial.print(F(" Pin "));
-	    	Serial.print(pin);
-	    	Serial.print(F(" - "));
-	    	Serial.print(xpanders[currentXpander].readPin(pin));
-	    	Serial.println(F(" - "));
-	    	break;
-	    }
-	    break;
+	case '0' ... '7': {
+		uint8_t pin = p[1] - '0';
+		Serial.print(F("Xpander "));
+		Serial.print(currentXpander);
+		Serial.print(F(" Pin "));
+		Serial.print(pin);
+		Serial.print(F(" set to "));
+		switch (p[2]) {
+		case 'O':
+			if (currentXpander == 0) {
+				xpander.setPinMode(pin, OUTPUT);
+			} else if (currentXpander == 1) {
+				powerXpander.setPinMode(pin, OUTPUT);
+			}
+			Serial.println(F("OUTPUT"));
+			break;
+		case 'i':
+			if (currentXpander == 0) {
+				xpander.setPinMode(pin, INPUT);
+			} else if (currentXpander == 1) {
+				powerXpander.setPinMode(pin, INPUT);
+			}
+			Serial.println(F("INPUT"));
+			break;
+		case 'I':
+			if (currentXpander == 0) {
+				xpander.setPinMode(pin, INPUT_PULLUP);
+			} else if (currentXpander == 1) {
+				powerXpander.setPinMode(pin, INPUT_PULLUP);
+			}
+//	    	xpanders[currentXpander].setPinMode(pin, INPUT_PULLUP);
+			Serial.println(F("INPUT_PULLUP"));
+			break;
+		case 'H':
+			if (currentXpander == 0) {
+				xpander.writePin(pin, HIGH);
+			} else if (currentXpander == 1) {
+				powerXpander.writePin(pin, HIGH);
+			}
+//	    	xpanders[currentXpander].writePin(pin, HIGH);
+			Serial.println(F("HIGH"));
+			break;
+		case 'L':
+			if (currentXpander == 0) {
+				xpander.writePin(pin, LOW);
+			} else if (currentXpander == 1) {
+				powerXpander.writePin(pin, LOW);
+			}
+//	    	xpanders[currentXpander].writePin(pin, LOW);
+			Serial.println(F("LOW"));
+			break;
+		case 'R':
+			Serial.print(F("Read Xpander "));
+			Serial.print(currentXpander);
+			Serial.print(F(" Pin "));
+			Serial.print(pin);
+			Serial.print(F(" - "));
+			if (currentXpander == 0) {
+				Serial.print(xpander.readPin(pin));
+			} else if (currentXpander == 1) {
+				Serial.print(powerXpander.readPin(pin));
+			}
+//	    	Serial.print(xpanders[currentXpander].readPin(pin));
+			Serial.println(F(" - "));
+			break;
+		}
+		break;
 	}  // end case '0' ... '7'
 
 	default:
@@ -218,21 +248,25 @@ void handleSerial(char* p){
 	}
 }
 
-
-void printMcpRegisters(){
-	for(int i=0; i<11; i++){
+void printMcpRegisters() {
+	for (int i = 0; i < 11; i++) {
 		Serial.print(F("Reg "));
 		Serial.print(i, HEX);
 		Serial.print(F(" : "));
-		Serial.print(xpanders[currentXpander].readRegister(i), HEX);
+		if (currentXpander == 0) {
+			Serial.print(xpander.readRegister(i), HEX);
+		} else if (currentXpander == 1) {
+			Serial.print(powerXpander.readRegister(i), HEX);
+		}
+//		Serial.print(xpanders[currentXpander].readRegister(i), HEX);
 		Serial.println(F("  -"));
 	}
 }
 
-void leftTick(boolean aForw){
+void leftTick(boolean aForw) {
 	motors[0].encoder.tick(aForw);
 }
 
-void rightTick(boolean aForw){
+void rightTick(boolean aForw) {
 	motors[1].encoder.tick(aForw);
 }

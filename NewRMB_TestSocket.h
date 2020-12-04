@@ -26,6 +26,7 @@
 #include "Encoder.h"
 
 #include "MCP23S09.h"
+#include "MCP23S08.h"
 
 void setup();
 void loop();
