@@ -92,8 +92,8 @@ Robot Main Brain  --  runs on 1284P and handles onboard control of my robot
 #define LEFT_MOTOR_DIRECTION_PIN_2 19
 
 
-#define RIGHT_MOTOR_ENABLE_PIN 3
-#define LEFT_MOTOR_ENABLE_PIN 4
+#define RIGHT_MOTOR_ENABLE_PIN 4
+#define LEFT_MOTOR_ENABLE_PIN 3
 
 #define RIGHT_MOTOR_FEEDBACK_PIN A2
 #define LEFT_MOTOR_FEEDBACK_PIN A1

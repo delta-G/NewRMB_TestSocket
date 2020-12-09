@@ -1,6 +1,6 @@
 /*
 
- NewRMB_TestSocket.h and NewRMB_TestSocket.cpp  --  test code for new version of RobotMainBrain hardware
+ MCP3008.h and MCP3008.cpp   --  Control code for MCP3008 10-bit ADC
  Copyright (C) 2020  David C.
 
  This program is free software: you can redistribute it and/or modify
@@ -18,25 +18,23 @@
 
  */
 
-#ifndef _NewRMB_TestSocket_H_
-#define _NewRMB_TestSocket_H_
+#ifndef MCP3008_H_
+#define MCP3008_H_
+
 #include "Arduino.h"
-#include <StreamParser.h>
-#include "Motor.h"
-#include "Encoder.h"
 
-#include "MCP3008.h"
-#include "MCP23S08.h"
+class MCP3008 {
 
-void setup();
-void loop();
-void heartbeat();
+private:
+	uint8_t CS_pin;
 
-void leftTick(boolean);
-void rightTick(boolean);
+public:
+	MCP3008(uint8_t aCSpin):CS_pin(aCSpin){};
 
-void handleSerial(char*);
+	void init();
+	uint16_t read(uint8_t aPin);
 
-void printMcpRegisters();
+};
 
-#endif /* _NewRMB_TestSocket_H_ */
+
+#endif /* MCP3008_H_ */

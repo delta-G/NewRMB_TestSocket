@@ -35,8 +35,8 @@ void MCP23S08::init() {
 //		SPI_setup = true;
 //	}
 	if (hardwareAddress != 255) {
-		uint8_t oldReg = readRegister(IOCON);
-		writeRegister(IOCON, (oldReg | (1 << HAEN)));
+//		uint8_t oldReg = readRegister(IOCON);
+		writeRegister(IOCON, (/*oldReg |*/ (1 << HAEN)));  // For some reason this doesn't work.  Have to set in sketch after they're all up
 	}
 }
 

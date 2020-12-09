@@ -26,11 +26,15 @@ unsigned long heartDelay = 500;
 StreamParser parser(&Serial, '<', '>', handleSerial);
 
 uint8_t xpander1CSpin = 1;
-uint8_t xpander2CSpin = 15;
+uint8_t xpander1HwAddy = 0;
+uint8_t xpander2CSpin = 1;
 uint8_t xpander2HwAddy = 3;
+uint8_t adcCSpin = 15;
 
-MCP23S09 xpander(xpander1CSpin);
+MCP23S08 xpander(xpander1CSpin, xpander1HwAddy);
 MCP23S08 powerXpander(xpander2CSpin, xpander2HwAddy);
+
+MCP3008 adc(adcCSpin);
 
 uint8_t currentXpander = 0;
 
@@ -43,13 +47,17 @@ void setup() {
 	uint8_t mcusr = MCUSR;
 	MCUSR = 0;
 
-	pinMode(4, OUTPUT);
-	xpander.init();
+	pinMode(4, OUTPUT);  //  This is a motor driver output but must be set output before SPI is setup or you end up in slave mode and don't run.
+	pinMode(0, OUTPUT);  // reset pin for pin expanders.  Needs to be high before they're set up.
+	digitalWrite(0, HIGH);
 	powerXpander.init();
+	xpander.init();
+	adc.init();
 	pinMode(heartbeatPin, OUTPUT);
 
-	pinMode(0, OUTPUT);
-	digitalWrite(0, HIGH);
+//	xpander.writeRegister(5,8);
+//	powerXpander.writeRegister(5,8);
+
 
 	setupPCint();
 	setTickCallback(leftTick, rightTick);
@@ -60,7 +68,7 @@ void setup() {
 	delay(250);
 	Serial.println(F("Beginning"));
 	Serial.println(F("End of Setup"));
-	Serial.println(F("Vers - 30"));
+	Serial.println(F("Vers - 44"));
 	Serial.println(mcusr, HEX);
 }
 
@@ -100,15 +108,27 @@ void handleSerial(char *p) {
 		switch (p[3]) {
 		case '0':
 			motors[mot].stop();
+			Serial.print("Motor ");
+			Serial.print(mot);
+			Serial.println(" Stopped");
 			break;
 		case '1':
 			motors[mot].driveForward();
+			Serial.print("Motor ");
+			Serial.print(mot);
+			Serial.println(" Forward");
 			break;
 		case '-':
 			motors[mot].driveBackward();
+			Serial.print("Motor ");
+			Serial.print(mot);
+			Serial.println(" Backward");
 			break;
 		case 'C':
 			motors[mot].coast();
+			Serial.print("Motor ");
+			Serial.print(mot);
+			Serial.println(" Coast");
 			break;
 		case 'P': {
 			int pwmSpeed = atoi((const char*) p + 4);
@@ -125,22 +145,27 @@ void handleSerial(char *p) {
 	}  // end case 'M'
 	case 'I':
 		Serial.println(F("Initializing expander"));
-		xpander.setPinMode(0, OUTPUT);
-		xpander.writePin(0, LOW);
+		xpander.setPinMode(7, OUTPUT);
+		xpander.writePin(7, LOW);
 
-		xpander.setPinMode(1, OUTPUT);
-		xpander.writePin(1, LOW);
+		powerXpander.setPinMode(7, OUTPUT);  // Motor Power
+		powerXpander.writePin(7, LOW);
 
-		xpander.setPinMode(2, OUTPUT);
-		xpander.writePin(2, LOW);
+		powerXpander.setPinMode(0, OUTPUT);  // Radio Power
+		powerXpander.writePin(0, LOW);
 
-		xpander.setPinMode(3, OUTPUT);
-		xpander.writePin(3, LOW);
+		powerXpander.setPinMode(1, OUTPUT);  // aux power
+		powerXpander.writePin(1, LOW);
 
-		xpander.setPinMode(4, INPUT);
-		xpander.setPinMode(5, INPUT);
-		xpander.setPinMode(6, INPUT);
-		xpander.setPinMode(7, INPUT);
+		powerXpander.setPinMode(2, OUTPUT);  // Video power on
+		powerXpander.writePin(2, LOW);
+
+		powerXpander.setPinMode(3, OUTPUT);  // Headlight power on
+		powerXpander.writePin(3, LOW);
+
+		powerXpander.setPinMode(4, OUTPUT);  // 12V power
+		powerXpander.writePin(4, LOW);
+
 		Serial.println(F("Expander setup compete."));
 		break;
 
@@ -174,6 +199,38 @@ void handleSerial(char *p) {
 			Serial.println(F("Xpander-1"));
 		}
 		break;
+	case 'R': {
+		uint8_t reg = p[2];
+		if (reg == 'A' || reg == 'a') {
+			reg = 10;
+		} else {
+			reg -= '0';
+		}
+		uint8_t val = strtoul(p+3,NULL,HEX);
+		Serial.print("Xpaner-");
+		if (currentXpander == 0) {
+			Serial.print("0 ");
+			xpander.writeRegister(reg, val);
+		} else if (currentXpander == 1) {
+			Serial.print("1 ");
+			powerXpander.writeRegister(reg, val);
+		}
+		Serial.print("Reg ");
+		Serial.print(reg);
+		Serial.print(" set to ");
+		Serial.println(val);
+		break;
+	}
+	case 'A':{
+		uint8_t whichPin = p[2] - '0';
+		uint16_t result = adc.read(whichPin);
+		Serial.print("Analog read pin ");
+		Serial.print(whichPin);
+		Serial.print(" : ");
+		Serial.println(result);
+		break;
+	}
+
 	case '0' ... '7': {
 		uint8_t pin = p[1] - '0';
 		Serial.print(F("Xpander "));
